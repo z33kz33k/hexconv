@@ -1,0 +1,10 @@
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Python compiled files
+*.pyc
+
+# Jupyter Notebook
+*.ipynb
+.ipynb_checkpoints
