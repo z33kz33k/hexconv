@@ -106,7 +106,7 @@ CFD_BASE32 = {
 }
 
 
-def isHex(str_to_check):
+def is_hex(str_to_check):
     """Checks if the argument is hexadecimal"""
     for lit in str_to_check:
         if lit not in HEX2DEX.keys():
@@ -114,7 +114,7 @@ def isHex(str_to_check):
     return True
 
 
-def isIPv6(str_to_check):
+def is_ipv6(str_to_check):
     """Checks if the argument is a valid (RFC 5952 compliant) IPv6 address"""
     if len(str_to_check) > 39:  # max 39 chars condition
         return False
@@ -152,9 +152,9 @@ class HexConverter(object):
         super(HexConverter, self).__init__()
         self.hx = None
         self.ipv6 = None
-        if isHex(user_input):
+        if is_hex(user_input):
             self.hx = user_input
-        elif isIPv6(user_input):
+        elif is_ipv6(user_input):
             self.ipv6 = user_input
 
     @staticmethod
@@ -165,8 +165,8 @@ class HexConverter(object):
             dec += HEX2DEX[lit] * (16**i)
         return dec
 
-    def expand_IPv6(self):
-        """Expands compressed IPv6 addesses"""
+    def expand_ipv6(self):
+        """Expands compressed IPv6 addresses"""
         parts = self.ipv6.split(":")
         if "::" in self.ipv6:
             zeroes = []
@@ -197,7 +197,7 @@ class HexConverter(object):
 
             Hexadecimal digits are expressed as lower-case letters. For example, 2001:db8::1 is preferred over 2001:DB8::1.
         """
-        self.expand_IPv6()
+        self.expand_ipv6()
         parts = self.ipv6.split(":")
         print(parts)
         dec = []
@@ -222,24 +222,19 @@ class HexConverter(object):
         ceiling = 0
         while True:
             power16 = 16 ** ceiling
-            print("{}, {}".format(power16, ceiling))
             if dec < power16:
                 break
             ceiling += 1
-        print("ceiling: {}".format(ceiling))
-        print()
 
         rmdr = dec
         multiplrs = []
         for i in range(ceiling - 1, -1, -1):
             power = 16 ** i
-            print("power: {}".format(power))
             if rmdr >= power:
                 md = rmdr % power
                 multipl = int((rmdr - md) / power)
                 delta = power * multipl
                 rmdr -= delta
-                print("**power: {}, multipl: {}, delta: {}, rmdr: {}".format(power, multipl, delta, rmdr))
                 multiplrs.append(multipl)
             else:
                 multiplrs.append(0)
@@ -266,9 +261,6 @@ def main():
         elif h2d.ipv6 is not None:
             print(h2d.ipv6_to_dec())
         else:
-            dec = 3586992
-            hx = h2d.dec2hex(dec)
-            print("dec: {}, hex: {}".format(dec, hx))
             exit("Input in wrong format. Exiting")
 
     elif len(argv) == 1:
