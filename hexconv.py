@@ -3,7 +3,7 @@
 from sys import argv
 from sys import exit
 
-HEX2DEX = {
+HEX2DEC = {
     "0": 0,
     "1": 1,
     "2": 2,
@@ -28,7 +28,7 @@ HEX2DEX = {
     "F": 15
 }
 
-DEX2HEX = {
+DEC2HEX = {
     0: "0",
     1: "1",
     2: "2",
@@ -47,6 +47,40 @@ DEX2HEX = {
     15: "f"
 }
 
+DEC2CFD_BASE32 = {
+    0: "0",
+    1: "1",
+    2: "2",
+    3: "3",
+    4: "4",
+    5: "5",
+    6: "6",
+    7: "7",
+    8: "8",
+    9: "9",
+    10: "a",
+    11: "b",
+    12: "c",
+    13: "d",
+    14: "e",
+    15: "f",
+    16: "g",
+    17: "h",
+    18: "j",
+    19: "k",
+    20: "m",
+    21: "n",
+    22: "p",
+    23: "q",
+    24: "r",
+    25: "s",
+    26: "t",
+    27: "v",
+    28: "w",
+    29: "x",
+    30: "y",
+    31: "z"
+}
 
 CFD_BASE32 = {
     "0": 0,
@@ -82,34 +116,34 @@ CFD_BASE32 = {
     "m": 20,
     "M": 20,
     "n": 21,
-    "N": 22,
-    "p": 23,
-    "P": 23,
-    "q": 24,
-    "Q": 24,
-    "r": 25,
-    "R": 25,
-    "s": 26,
-    "S": 26,
-    "t": 27,
-    "T": 27,
-    "v": 28,
-    "V": 28,
-    "w": 29,
-    "W": 29,
-    "x": 30,
-    "X": 30,
-    "y": 31,
-    "Y": 31,
-    "z": 32,
-    "Z": 33
+    "N": 21,
+    "p": 22,
+    "P": 22,
+    "q": 23,
+    "Q": 23,
+    "r": 24,
+    "R": 24,
+    "s": 25,
+    "S": 25,
+    "t": 26,
+    "T": 26,
+    "v": 27,
+    "V": 27,
+    "w": 28,
+    "W": 28,
+    "x": 29,
+    "X": 29,
+    "y": 30,
+    "Y": 30,
+    "z": 31,
+    "Z": 31
 }
 
 
 def is_hex(str_to_check):
     """Checks if the argument is hexadecimal"""
     for lit in str_to_check:
-        if lit not in HEX2DEX.keys():
+        if lit not in HEX2DEC.keys():
             return False
     return True
 
@@ -120,7 +154,7 @@ def is_ipv6(str_to_check):
         return False
     if ":" not in str_to_check:  # colon condition
         return False
-    chars = list(HEX2DEX)
+    chars = list(HEX2DEC)
     chars.append(":")
     for lit in str_to_check:
         if lit not in chars:  # all chars are hex or colon condition
@@ -156,13 +190,14 @@ class HexConverter(object):
             self.hx = user_input
         elif is_ipv6(user_input):
             self.ipv6 = user_input
+        self.ipv6_dec = None
 
     @staticmethod
     def hex2dec(hx):
         """Converts hexadecimal to decimal numbers"""
         dec = 0
         for i, lit in enumerate(hx[::-1]):
-            dec += HEX2DEX[lit] * (16**i)
+            dec += HEX2DEC[lit] * (16**i)
         return dec
 
     def expand_ipv6(self):
@@ -199,37 +234,28 @@ class HexConverter(object):
         """
         self.expand_ipv6()
         parts = self.ipv6.split(":")
-        print(parts)
         dec = []
         for part in parts:
             dec.append(str(self.hex2dec(part)))
-        return ":".join(dec)
+        self.ipv6_dec = ":".join(dec)
 
     @staticmethod
-    def dec2base32(dec):
-        """Converts decimals do base32"""
-        count = 0
-        while True:
-            power32 = 32 ** count
-            if dec > power32:
-                count += 1
-            else:
-                break
+    def conv_dec(dec, base=16):
+        """Converts decimals to hexadecimals or base32"""
+        if base not in (16, 32):
+            return None
 
-    @staticmethod
-    def dec2hex(dec):
-        """Converts decimals do hexadecimals"""
         ceiling = 0
         while True:
-            power16 = 16 ** ceiling
-            if dec < power16:
+            maxpower = base ** ceiling
+            if dec < maxpower:
                 break
             ceiling += 1
 
         rmdr = dec
         multiplrs = []
         for i in range(ceiling - 1, -1, -1):
-            power = 16 ** i
+            power = base ** i
             if rmdr >= power:
                 md = rmdr % power
                 multipl = int((rmdr - md) / power)
@@ -240,14 +266,25 @@ class HexConverter(object):
                 multiplrs.append(0)
 
         if len(multiplrs) > 0:
-            hx = []
+            conv = []
             for m in multiplrs:
-                hx.append(DEX2HEX[m])
-            hx = "".join(hx)
+                if base == 16:
+                    conv.append(DEC2HEX[m])
+                else:
+                    conv.append(DEC2CFD_BASE32[m])
+            conv = "".join(conv)
         else:
-            hx = "0"
+            conv = "0"
 
-        return hx
+        return conv
+
+    def ipv6_to_base32(self):
+        """Converts IPv6 address to base32 notation"""
+        parts = self.ipv6_dec.split(":")
+        base32 = []
+        for part in parts:
+            base32.append(self.conv_dec(int(part), 32))
+        return ":".join(base32)
 
 
 def main():
@@ -259,7 +296,9 @@ def main():
         if h2d.hx is not None:
             print(h2d.hex2dec(h2d.hx))
         elif h2d.ipv6 is not None:
-            print(h2d.ipv6_to_dec())
+            h2d.ipv6_to_dec()
+            print(h2d.ipv6_dec)
+            print(h2d.ipv6_to_base32())
         else:
             exit("Input in wrong format. Exiting")
 
