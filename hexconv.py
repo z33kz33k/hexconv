@@ -47,7 +47,7 @@ DEC2HEX = {
     15: "f"
 }
 
-DEC2CFD_BASE32 = {
+DEC2CFD_BASE32 = {  # decimals to Crockford's base32
     0: "0",
     1: "1",
     2: "2",
@@ -149,7 +149,18 @@ def is_hex(str_to_check):
 
 
 def is_ipv6(str_to_check):
-    """Checks if the argument is a valid (RFC 5952 compliant) IPv6 address"""
+    """Checks if the argument is a valid (RFC 5952 compliant) IPv6 address
+
+    RFC 5952 recommendations for IPv6 representation as text are:
+
+        Leading zeros in each 16-bit field are suppressed. For example, 2001:0db8::0001 is rendered as 2001:db8::1, though any all-zero field that is explicitly presented is rendered as 0.
+
+        "::" is not used to shorten just a single 0 field. For example, 2001:db8:0:0:0:0:2:1 is shortened to 2001:db8::2:1, but 2001:db8:0000:1:1:1:1:1 is rendered as 2001:db8:0:1:1:1:1:1.
+
+        Representations are shortened as much as possible. The longest sequence of consecutive all-zero fields is replaced by double-colon. If there are multiple longest runs of all-zero fields, then it is the leftmost that is compressed. E.g., 2001:db8:0:0:1:0:0:1 is rendered as 2001:db8::1:0:0:1 rather than as 2001:db8:0:0:1::1.
+
+        Hexadecimal digits are expressed as lower-case letters. For example, 2001:db8::1 is preferred over 2001:DB8::1.
+    """
     if len(str_to_check) > 39:  # max 39 chars condition
         return False
     if ":" not in str_to_check:  # colon condition
@@ -185,12 +196,14 @@ class HexConverter(object):
     def __init__(self, user_input):
         super(HexConverter, self).__init__()
         self.hx = None
-        self.ipv6 = None
+        self.ipv6 = None  # ordinary IPv6 address (expressed in hexadecimals)
         if is_hex(user_input):
             self.hx = user_input
         elif is_ipv6(user_input):
             self.ipv6 = user_input
-        self.ipv6_dec = None
+        self.ipv6_dec = None  # IPv6 expressed in decimals (with colons)
+        self.ipv6_bin = None  # IPv6 expressed in a single binary number (no colons)
+        self.ipv6_b32 = None  # IPv6 expressed in a single base32 number (no colons)
 
     @staticmethod
     def hex2dec(hx):
@@ -219,19 +232,7 @@ class HexConverter(object):
         self.ipv6 = ":".join(new_parts)
 
     def ipv6_to_dec(self):
-        """
-        Converts IPv6 addresses to decimal format
-
-        RFC 5952 recommendations for IPv6 representation as text are:
-
-            Leading zeros in each 16-bit field are suppressed. For example, 2001:0db8::0001 is rendered as 2001:db8::1, though any all-zero field that is explicitly presented is rendered as 0.
-
-            "::" is not used to shorten just a single 0 field. For example, 2001:db8:0:0:0:0:2:1 is shortened to 2001:db8::2:1, but 2001:db8:0000:1:1:1:1:1 is rendered as 2001:db8:0:1:1:1:1:1.
-
-            Representations are shortened as much as possible. The longest sequence of consecutive all-zero fields is replaced by double-colon. If there are multiple longest runs of all-zero fields, then it is the leftmost that is compressed. E.g., 2001:db8:0:0:1:0:0:1 is rendered as 2001:db8::1:0:0:1 rather than as 2001:db8:0:0:1::1.
-
-            Hexadecimal digits are expressed as lower-case letters. For example, 2001:db8::1 is preferred over 2001:DB8::1.
-        """
+        """Converts IPv6 addresses to decimal format"""
         self.expand_ipv6()
         parts = self.ipv6.split(":")
         dec = []
@@ -241,21 +242,21 @@ class HexConverter(object):
 
     @staticmethod
     def conv_dec(dec, base=16):
-        """Converts decimals to hexadecimals or base32"""
-        if base not in (16, 32):
+        """Converts decimals to binaries, hexadecimals or base32"""
+        if base not in (2, 16, 32):
             return None
 
         ceiling = 0
         while True:
             maxpower = base ** ceiling
-            if dec < maxpower:
+            if maxpower > dec:
                 break
             ceiling += 1
 
         rmdr = dec
         multiplrs = []
-        for i in range(ceiling - 1, -1, -1):
-            power = base ** i
+        for exp in range(ceiling - 1, -1, -1):
+            power = base ** exp
             if rmdr >= power:
                 md = rmdr % power
                 multipl = int((rmdr - md) / power)
@@ -268,7 +269,9 @@ class HexConverter(object):
         if len(multiplrs) > 0:
             conv = []
             for m in multiplrs:
-                if base == 16:
+                if base == 2:
+                    conv.append(str(m))
+                elif base == 16:
                     conv.append(DEC2HEX[m])
                 else:
                     conv.append(DEC2CFD_BASE32[m])
@@ -279,7 +282,7 @@ class HexConverter(object):
         return conv
 
     def ipv6_to_base32(self):
-        """Converts IPv6 address to base32 notation"""
+        """Translates IPv6 address expressed in decimals to base32 notation"""
         parts = self.ipv6_dec.split(":")
         base32 = []
         for part in parts:
