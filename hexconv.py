@@ -191,58 +191,73 @@ def is_ipv6(str_to_check):
 
 
 class HexConverter(object):
-    """Converts hexadecimal numbers"""
+    """
+    Converts hexadecimal numbers/IPv6 addresses to numbers/addresses expressed with binary (or any other base <= 10) or base32 notation"
+    """
 
     def __init__(self, user_input):
         super(HexConverter, self).__init__()
         self.hx = None
-        self.ipv6 = None  # ordinary IPv6 address (expressed in hexadecimals)
+        self.hx_dec = None
+        self.ipv6 = None  # ordinary IPv6 address (expressed with hexadecimals and colons)
+        self.ipv6_dec = None  # IPv6 expressed with decimals and colons
+
         if is_hex(user_input):
             self.hx = user_input
+            self.hex_dec = self.hex2dec(self.hx)
         elif is_ipv6(user_input):
-            self.ipv6 = user_input
-        self.ipv6_dec = None  # IPv6 expressed in decimals (with colons)
-        self.ipv6_bin = None  # IPv6 expressed in a single binary number (no colons)
-        self.ipv6_b32 = None  # IPv6 expressed in a single base32 number (no colons)
+            self.ipv6 = self.expand_ipv6(user_input)
+            self.ipv6_dec = self.ipv6_to_dec()  # IPv6 expressed with decimals (and colons)
 
     @staticmethod
     def hex2dec(hx):
-        """Converts hexadecimal to decimal numbers"""
-        dec = 0
-        for i, lit in enumerate(hx[::-1]):
-            dec += HEX2DEC[lit] * (16**i)
-        return dec
+        """Converts a hexadecimal number (string) to a decimal one (number)"""
+        if hx is None:
+            return None
+        else:
+            dec = 0
+            for i, lit in enumerate(hx[::-1]):
+                dec += HEX2DEC[lit] * (16**i)
+            return dec
 
-    def expand_ipv6(self):
+    @staticmethod
+    def expand_ipv6(ipv6):
         """Expands compressed IPv6 addresses"""
-        parts = self.ipv6.split(":")
-        if "::" in self.ipv6:
+        parts = ipv6.split(":")
+        if "::" in ipv6:
             zeroes = []
             supp_0000_count = 8 - len(parts) + 1
             while supp_0000_count > 0:
                 zeroes.append("0000")
                 supp_0000_count -= 1
             unsupressed = ":" + ":".join(zeroes) + ":"
-            self.ipv6 = self.ipv6.replace("::", unsupressed)
+            ipv6 = ipv6.replace("::", unsupressed)
 
-        parts = self.ipv6.split(":")
+        parts = ipv6.split(":")
         new_parts = []
         for part in parts:
             new_parts.append(part.zfill(4))
-        self.ipv6 = ":".join(new_parts)
+        ipv6 = ":".join(new_parts)
+
+        return ipv6
 
     def ipv6_to_dec(self):
         """Converts IPv6 addresses to decimal format"""
-        self.expand_ipv6()
-        parts = self.ipv6.split(":")
+        if self.ipv6 is not None:
+            parts = self.ipv6.split(":")
+        else:
+            return None
         dec = []
         for part in parts:
             dec.append(str(self.hex2dec(part)))
-        self.ipv6_dec = ":".join(dec)
+
+        return ":".join(dec)
 
     @staticmethod
     def conv_dec(dec, base=16, pretty=False):
-        """Converts decimals to binaries (or any other base <= 10), hexadecimals or base32"""
+        """
+        Converts decimals (numbers) to binaries (or any other base <= 10), hexadecimals or base32 (strings)
+        """
         if base not in [i for i in range(2, 33) if i <= 10 or i == 16 or i == 32]:
             return None
 
