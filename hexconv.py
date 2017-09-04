@@ -241,9 +241,9 @@ class HexConverter(object):
         self.ipv6_dec = ":".join(dec)
 
     @staticmethod
-    def conv_dec(dec, base=16):
-        """Converts decimals to binaries, hexadecimals or base32"""
-        if base not in (2, 16, 32):
+    def conv_dec(dec, base=16, pretty=True):
+        """Converts decimals to binaries (or any other base <= 10), hexadecimals or base32"""
+        if base not in [i for i in range(2, 33) if i <= 10 or i == 16 or i == 32]:
             return None
 
         ceiling = 0
@@ -269,15 +269,32 @@ class HexConverter(object):
         if len(multiplrs) > 0:
             conv = []
             for m in multiplrs:
-                if base == 2:
-                    conv.append(str(m))
-                elif base == 16:
+                if base == 16:
                     conv.append(DEC2HEX[m])
-                else:
+                elif base == 32:
                     conv.append(DEC2CFD_BASE32[m])
+                else:
+                    conv.append(str(m))
             conv = "".join(conv)
         else:
             conv = "0"
+
+        if pretty:
+            # padding with zeroes
+            zeroes_count = 4 - len(conv) % 4
+            if zeroes_count == 4:
+                zeroes_count = 0
+            conv = conv.zfill(len(conv) + zeroes_count)
+            # dividing into 4 chars long segments
+            segments = []
+            segment = []
+            for i in range(len(conv)):
+                segment.append(conv[i])
+                if (i + 1) % 4 == 0:
+                    segment = "".join(segment)
+                    segments.append(segment)
+                    segment = []
+            conv = " ".join(segments)
 
         return conv
 
