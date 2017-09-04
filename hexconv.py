@@ -241,7 +241,7 @@ class HexConverter(object):
         self.ipv6_dec = ":".join(dec)
 
     @staticmethod
-    def conv_dec(dec, base=16, pretty=True):
+    def conv_dec(dec, base=16, pretty=False):
         """Converts decimals to binaries (or any other base <= 10), hexadecimals or base32"""
         if base not in [i for i in range(2, 33) if i <= 10 or i == 16 or i == 32]:
             return None
