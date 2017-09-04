@@ -82,7 +82,7 @@ DEC2CFD_BASE32 = {  # decimals to Crockford's base32
     31: "z"
 }
 
-CFD_BASE32 = {
+CFD_BASE32 = {  # Crockford's base32 to decimals (so far not used)
     "0": 0,
     "1": 1,
     "2": 2,
