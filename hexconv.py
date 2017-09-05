@@ -89,9 +89,9 @@ class Hexadecimal(object):
 
     @classmethod
     def is_valid(cls, str_to_check):
-        """Checks if the argument is a valid hexadecimal number"""
-        for lit in str_to_check:
-            if lit not in cls.HEX2DEC.keys():
+        """Checks if the argument is a valid hexadecimal string"""
+        for char in str_to_check:
+            if char not in cls.HEX2DEC.keys():
                 return False
         return True
 
@@ -99,21 +99,44 @@ class Hexadecimal(object):
     def to_dec(cls, hx):
         """Converts a hexadecimal string to a decimal number"""
         dec = 0
-        for i, lit in enumerate(hx[::-1]):
-            dec += cls.HEX2DEC[lit] * (16**i)
+        for i, char in enumerate(hx[::-1]):
+            dec += cls.HEX2DEC[char] * (16**i)
         return dec
 
-    @classmethod
-    def dec_to_base(cls, dec, base=16, pretty=False):
+    def prettify(cls, numstring, delimiter=" ", span=4):
+        # padding with zeroes
+        zeroes_count = span - len(numstring) % span
+        if zeroes_count == span:
+            zeroes_count = 0
+        numstring = numstring.zfill(len(numstring) + zeroes_count)
+        # dividing into span-long segments
+        segments = []
+        segment = []
+        for i in range(len(numstring)):
+            segment.append(numstring[i])
+            if (i + 1) % span == 0:
+                segment = "".join(segment)
+                segments.append(segment)
+                segment = []
+        numstring = delimiter.join(segments)
+
+        return numstring
+
+    def __init__(self, hx, base=10):
+        super(Hexadecimal, self).__init__()
+        self.hx = hx  # string
+        self.base = base
+
+    def dec_to_base(self, dec):
         """
         Converts a decimal number to a binary (or any other base <= 10), hexadecimal or base32 string
         """
-        if base not in [i for i in range(2, 33) if i <= 10 or i == 16 or i == 32]:
+        if self.base not in [i for i in range(2, 33) if i <= 10 or i == 16 or i == 32]:
             return None
 
         ceiling = 0
         while True:
-            maxpower = base ** ceiling
+            maxpower = self.base ** ceiling
             if maxpower > dec:
                 break
             ceiling += 1
@@ -121,7 +144,7 @@ class Hexadecimal(object):
         rmdr = dec
         multiplrs = []
         for exp in range(ceiling - 1, -1, -1):
-            power = base ** exp
+            power = self.base ** exp
             if rmdr >= power:
                 md = rmdr % power
                 multipl = int((rmdr - md) / power)
@@ -134,38 +157,17 @@ class Hexadecimal(object):
         if len(multiplrs) > 0:
             conv = []
             for m in multiplrs:
-                if base == 16:
-                    conv.append(cls.DEC2HEX[m])
-                elif base == 32:
-                    conv.append(cls.DEC2CFD_BASE32[m])
+                if self.base == 16:
+                    conv.append(self.DEC2HEX[m])
+                elif self.base == 32:
+                    conv.append(self.DEC2CFD_BASE32[m])
                 else:
                     conv.append(str(m))
             conv = "".join(conv)
         else:
             conv = "0"
 
-        if pretty:
-            # padding with zeroes
-            zeroes_count = 4 - len(conv) % 4
-            if zeroes_count == 4:
-                zeroes_count = 0
-            conv = conv.zfill(len(conv) + zeroes_count)
-            # dividing into 4 chars long segments
-            segments = []
-            segment = []
-            for i in range(len(conv)):
-                segment.append(conv[i])
-                if (i + 1) % 4 == 0:
-                    segment = "".join(segment)
-                    segments.append(segment)
-                    segment = []
-            conv = " ".join(segments)
-
         return conv
-
-    def __init__(self, hx):
-        super(Hexadecimal, self).__init__()
-        self.hx = hx  # string
 
 
 class IPv6Address(Hexadecimal):
@@ -198,17 +200,14 @@ class IPv6Address(Hexadecimal):
 
     @classmethod
     def is_valid(cls, str_to_check):
-        """Checks if the argument is a valid (RFC 5952 compliant) IPv6 address
+        """
+        Checks if the argument is a valid (RFC 5952 compliant) IPv6 address
 
         RFC 5952 recommendations for IPv6 representation as text are:
-
-            Leading zeros in each 16-bit field are suppressed. For example, 2001:0db8::0001 is rendered as 2001:db8::1, though any all-zero field that is explicitly presented is rendered as 0.
-
-            "::" is not used to shorten just a single 0 field. For example, 2001:db8:0:0:0:0:2:1 is shortened to 2001:db8::2:1, but 2001:db8:0000:1:1:1:1:1 is rendered as 2001:db8:0:1:1:1:1:1.
-
-            Representations are shortened as much as possible. The longest sequence of consecutive all-zero fields is replaced by double-colon. If there are multiple longest runs of all-zero fields, then it is the leftmost that is compressed. E.g., 2001:db8:0:0:1:0:0:1 is rendered as 2001:db8::1:0:0:1 rather than as 2001:db8:0:0:1::1.
-
-            Hexadecimal digits are expressed as lower-case letters. For example, 2001:db8::1 is preferred over 2001:DB8::1.
+            - Leading zeros in each 16-bit field are suppressed. For example, 2001:0db8::0001 is rendered as 2001:db8::1, though any all-zero field that is explicitly presented is rendered as 0.
+            - "::" is not used to shorten just a single 0 field. For example, 2001:db8:0:0:0:0:2:1 is shortened to 2001:db8::2:1, but 2001:db8:0000:1:1:1:1:1 is rendered as 2001:db8:0:1:1:1:1:1.
+            - Representations are shortened as much as possible. The longest sequence of consecutive all-zero fields is replaced by double-colon. If there are multiple longest runs of all-zero fields, then it is the leftmost that is compressed. E.g., 2001:db8:0:0:1:0:0:1 is rendered as 2001:db8::1:0:0:1 rather than as 2001:db8:0:0:1::1.
+            - Hexadecimal digits are expressed as lower-case letters. For example, 2001:db8::1 is preferred over 2001:DB8::1.
         """
         if len(str_to_check) > 39:  # max 39 chars condition
             return False
@@ -216,8 +215,8 @@ class IPv6Address(Hexadecimal):
             return False
         chars = list(super().HEX2DEC)
         chars.append(":")
-        for lit in str_to_check:
-            if lit not in chars:  # all chars are hex or colon condition
+        for char in str_to_check:
+            if char not in chars:  # all chars are hex or colon condition
                 return False
         parts = str_to_check.split(":")
         if len(parts) > 8:  # max 8 parts condition
@@ -238,17 +237,17 @@ class IPv6Address(Hexadecimal):
 
         return True
 
-    def __init__(self, address):
-        super(IPv6Address, self).__init__(None)
+    def __init__(self, address, base=32):
+        super(IPv6Address, self).__init__(None, base)
         self.address = self.expand(address)
         self.hexes = self.address.split(":")  # list of strings
         self.decimals = [super(IPv6Address, self).to_dec(hx) for hx in self.hexes]  # list of numbers
 
-    def to_base(self, base=16):
+    def to_base(self):
         """Translates IPv6 address expressed in decimals to base32 notation"""
         based = []
         for decimal in self.decimals:
-            based.append(super().dec_to_base(int(decimal), base))
+            based.append(super().dec_to_base(int(decimal)))
         based = ":".join(based)
 
         return self.expand(based)
@@ -265,7 +264,7 @@ def main():
             print(dec)
         elif IPv6Address.is_valid(argv[1]):
             ip = IPv6Address(argv[1])
-            print(ip.to_base(8))
+            print(ip.to_base())
         else:
             exit("Input in wrong format. Exiting")
 
