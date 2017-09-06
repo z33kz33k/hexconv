@@ -1,13 +1,43 @@
 #!/usr/bin/env python3
 
-from sys import argv
+# from sys import argv
+import argparse
 from sys import exit
+
+
+class Base(object):
+    """Base for notation"""
+    BASES = {
+        2: ("binary", 4),
+        3: ("ternary", 4),
+        4: ("quaternary", 4),
+        5: ("quinary", 4),
+        6: ("senary", 4),
+        7: ("septenary", 4),
+        8: ("octal", 3),
+        9: ("nonary", 3),
+        10: ("decimal", 3),
+        11: ("undecimal", 3),
+        12: ("duodecimal", 3),
+        13: ("tridecimal", 3),
+        14: ("tetradecimal", 3),
+        15: ("pentadecimal", 3),
+        16: ("hexadecimal", 2),
+        32: ("duotrigesimal", 2),
+    }
+
+    def __init__(self, value):
+        super(Base, self).__init__()
+        self.value = value
+        self.name = self.BASES[self.value][0]
+        self.span = self.BASES[self.value][1]
 
 
 class Hexadecimal(object):
     """
-    Hexadecimal number. Knows how to convert itself to other notations (any with base <= 10 and base32)
+    Hexadecimal number. Knows how to convert itself to other notations (any with a base in Base.BASES)
     """
+
     HEX2DEC = {
         "0": 0,
         "1": 1,
@@ -98,45 +128,26 @@ class Hexadecimal(object):
     @classmethod
     def to_dec(cls, hx):
         """Converts a hexadecimal string to a decimal number"""
+        if hx is None:
+            return None
         dec = 0
         for i, char in enumerate(hx[::-1]):
             dec += cls.HEX2DEC[char] * (16**i)
         return dec
 
-    def prettify(cls, numstring, delimiter=" ", span=4):
-        # padding with zeroes
-        zeroes_count = span - len(numstring) % span
-        if zeroes_count == span:
-            zeroes_count = 0
-        numstring = numstring.zfill(len(numstring) + zeroes_count)
-        # dividing into span-long segments
-        segments = []
-        segment = []
-        for i in range(len(numstring)):
-            segment.append(numstring[i])
-            if (i + 1) % span == 0:
-                segment = "".join(segment)
-                segments.append(segment)
-                segment = []
-        numstring = delimiter.join(segments)
-
-        return numstring
-
-    def __init__(self, hx, base=10):
+    def __init__(self, hx, base, pretty, verbosity):
         super(Hexadecimal, self).__init__()
         self.hx = hx  # string
-        self.base = base
+        self.dec = Hexadecimal.to_dec(self.hx)  # number
+        self.base = Base(base)
+        self.pretty = pretty
+        self.verbosity = verbosity
 
-    def dec_to_base(self, dec):
-        """
-        Converts a decimal number to a binary (or any other base <= 10), hexadecimal or base32 string
-        """
-        if self.base not in [i for i in range(2, 33) if i <= 10 or i == 16 or i == 32]:
-            return None
-
+    def to_base(self, dec):
+        """Converts a decimal number to a string in other notation"""
         ceiling = 0
         while True:
-            maxpower = self.base ** ceiling
+            maxpower = self.base.value ** ceiling
             if maxpower > dec:
                 break
             ceiling += 1
@@ -144,7 +155,7 @@ class Hexadecimal(object):
         rmdr = dec
         multiplrs = []
         for exp in range(ceiling - 1, -1, -1):
-            power = self.base ** exp
+            power = self.base.value ** exp
             if rmdr >= power:
                 md = rmdr % power
                 multipl = int((rmdr - md) / power)
@@ -157,46 +168,59 @@ class Hexadecimal(object):
         if len(multiplrs) > 0:
             conv = []
             for m in multiplrs:
-                if self.base == 16:
-                    conv.append(self.DEC2HEX[m])
-                elif self.base == 32:
+                if self.base.value == 32:
                     conv.append(self.DEC2CFD_BASE32[m])
                 else:
-                    conv.append(str(m))
+                    conv.append(self.DEC2HEX[m])
             conv = "".join(conv)
         else:
             conv = "0"
 
         return conv
 
+    def segment(self, numstring):
+        segments = []
+        segment = []
+        for i in range(len(numstring)):
+            segment.append(numstring[i])
+            if (i + 1) % self.base.span == 0:
+                segment = "".join(segment)
+                segments.append(segment)
+                segment = []
+        numstring = " ".join(segments)
+
+        return numstring
+
+    def prettify(self, numstring):
+        """Renders a number string in human readable format"""
+
+        # padding with zeroes
+        zeroes_count = self.base.span - len(numstring) % self.base.span
+        if zeroes_count == self.base.span:
+            zeroes_count = 0
+        numstring = numstring.zfill(len(numstring) + zeroes_count)
+        # dividing into self.base.span-long segments
+        numstring = self.segment(numstring)
+
+        return numstring
+
+    def get_output(self):
+        """Creates and returns the output string"""
+        output = self.to_base(self.dec)
+
+        if self.pretty:
+            output = self.prettify(output)
+
+        if self.verbosity:
+            output = "'{}' in {} notation: {}".format(self.hx, self.base.name, output)
+
+        return output
+
 
 class IPv6Address(Hexadecimal):
     """
-    IPv6 addresss. Knows how to convert itself to other notations (any with base <= 10 and base32)"
+    IPv6 address. Knows how to convert itself to other notations (any with a base in Base.BASES.keys())
     """
-
-    @staticmethod
-    def expand(address):
-        """Expands a compressed IPv6 address"""
-
-        # uncompressing zeroes
-        parts = address.split(":")
-        if "::" in address:
-            zeroes = []
-            compressed_count = 8 - len(parts) + 1
-            while compressed_count > 0:
-                zeroes.append("0000")
-                compressed_count -= 1
-            uncompressed = ":" + ":".join(zeroes) + ":"
-            address = address.replace("::", uncompressed)
-        # left-padding with zeroes
-        parts = address.split(":")
-        new_parts = []
-        for part in parts:
-            new_parts.append(part.zfill(4))
-        address = ":".join(new_parts)
-
-        return address
 
     @classmethod
     def is_valid(cls, str_to_check):
@@ -237,41 +261,107 @@ class IPv6Address(Hexadecimal):
 
         return True
 
-    def __init__(self, address, base=32):
-        super(IPv6Address, self).__init__(None, base)
+    def __init__(self, address, base, pretty, verbosity):
+        super(IPv6Address, self).__init__(None, base, pretty, verbosity)
         self.address = self.expand(address)
         self.hexes = self.address.split(":")  # list of strings
         self.decimals = [super(IPv6Address, self).to_dec(hx) for hx in self.hexes]  # list of numbers
 
+    @staticmethod
+    def expand(address):
+        """Expands a compressed IPv6 address"""
+
+        # uncompressing zeroes
+        parts = address.split(":")
+        if "::" in address:
+            zeroes = []
+            compressed_count = 8 - len(parts) + 1
+            while compressed_count > 0:
+                zeroes.append("0000")
+                compressed_count -= 1
+            uncompressed = ":" + ":".join(zeroes) + ":"
+            address = address.replace("::", uncompressed)
+        # left-padding with zeroes
+        parts = address.split(":")
+        new_parts = []
+        for part in parts:
+            new_parts.append(part.zfill(4))
+        address = ":".join(new_parts)
+
+        return address
+
     def to_base(self):
-        """Translates IPv6 address expressed in decimals to base32 notation"""
+        """Translates IPv6 address expressed in decimals to other notation"""
         based = []
         for decimal in self.decimals:
-            based.append(super().dec_to_base(int(decimal)))
+            based.append(super().to_base(int(decimal)))
         based = ":".join(based)
 
-        return self.expand(based)
+        return based
+
+    def prettify(self, address):
+        """Renders an address in human readable format"""
+        parts = address.split(":")
+
+        # prettifying non-zero parts
+        new_parts = []
+        for part in parts:
+            if part != "0":
+                new_parts.append(super().prettify(part))
+            else:
+                new_parts.append("0")
+
+        # prettifying zero parts
+        new_parts_lens = [len(new_part) for new_part in new_parts]
+        newer_parts = []
+        for new_part in new_parts:
+            if new_part != "0":
+                newer_parts.append(new_part)
+            else:
+                zeroes = "0" * max(new_parts_lens)
+                newer_parts.append(super().segment(zeroes))
+
+        new_address = ":".join(newer_parts)
+
+        return new_address
+
+    def get_output(self):
+        """Creates and returns the output string"""
+        output = self.to_base()
+
+        if self.pretty:
+            output = self.prettify(output)
+
+        # if self.verbosity:
+        #     output = "'{}' in {} notation: {}".format(self.hx, self.base.name, output)
+
+        return output
+
+
+def get_argsparser():
+    """Creates and returns a command line arguments parser"""
+    parser = argparse.ArgumentParser(description="Convert a hexadecimal/IPv6 address to other notations")
+    parser.add_argument("hex_or_ipv6", help="either a hexadecimal number or a valid (RFC 5952 compliant) IPv6 address")
+    parser.add_argument("-b", "--base", type=int, choices=sorted(Base.BASES.keys()), default=10, help="base for notation, 32 is Crockford's variety,  defaults to 10")
+    parser.add_argument("-p", "--prettify", action="store_true", help="prettify output to human readable format")
+    parser.add_argument("-v", "--verbosity", action="store_true", help="increase output verbosity")
+    return parser
 
 
 def main():
-    """
-    Runs the script
-    """
-    if len(argv) == 2:
-        if Hexadecimal.is_valid(argv[1]):
-            h = Hexadecimal(argv[1])
-            dec = h.to_dec(h.hx)
-            print(dec)
-        elif IPv6Address.is_valid(argv[1]):
-            ip = IPv6Address(argv[1])
-            print(ip.to_base())
-        else:
-            exit("Input in wrong format. Exiting")
+    """Runs the script"""
+    parser = get_argsparser()
+    args = parser.parse_args()
 
-    elif len(argv) == 1:
-        exit("No parameter entered. Exiting")
+    if Hexadecimal.is_valid(args.hex_or_ipv6):
+        h = (Hexadecimal(args.hex_or_ipv6, args.base, args.prettify, args.verbosity))
+        print(h.get_output())
+    elif IPv6Address.is_valid(args.hex_or_ipv6):
+        ip = IPv6Address(args.hex_or_ipv6, args.base, args.prettify, args.verbosity)
+        print(ip.get_output())
     else:
-        exit("To many parameters entered. Exiting")
+        parser.print_usage()
+        exit("{}: error: unrecognized argument: {}".format(parser.prog, args.hex_or_ipv6))
 
 
 if __name__ == "__main__":

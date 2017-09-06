@@ -6,4 +6,4 @@ While reading up on IPv6 it struck me that (**if only we didn't have to stick to
 
 But how shorter exactly? Well, I know you just have to divide `128` by `5` `(32 = 2^5)` to see that you need at least `26` characters to express a `128-bit` number space with `base32`, but still to see it clearer I needed some kind of converter. And thus this little script was born.
 
-Ignoring the built-in Python capabilities was intentional.
+Ignoring the built-in Python capabilities in numbers' conversion was intentional.
