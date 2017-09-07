@@ -291,7 +291,7 @@ class IPv6Address(Hexadecimal):
 
     @staticmethod
     def compress(address):  # this was a lot harder than expected
-        """Compresses zeroes in an address (as per RFC 5952)"""
+        """Supresses zeroes in an address (as per RFC 5952)"""
         parts = address.split(":")
 
         # mapping consecutive zeroes in 'parts'
