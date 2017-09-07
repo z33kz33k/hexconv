@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-# from sys import argv
 import argparse
 from sys import exit
 
@@ -23,7 +22,7 @@ class Base(object):
         14: ("tetradecimal", 3),
         15: ("pentadecimal", 3),
         16: ("hexadecimal", 2),
-        32: ("duotrigesimal", 2),
+        32: ("duotrigesimal", 2)
     }
 
     def __init__(self, value):
@@ -125,23 +124,22 @@ class Hexadecimal(object):
                 return False
         return True
 
-    @classmethod
-    def to_dec(cls, hx):
-        """Converts a hexadecimal string to a decimal number"""
-        if hx is None:
-            return None
-        dec = 0
-        for i, char in enumerate(hx[::-1]):
-            dec += cls.HEX2DEC[char] * (16**i)
-        return dec
-
     def __init__(self, hx, base, pretty, verbosity):
         super(Hexadecimal, self).__init__()
         self.hx = hx  # string
-        self.dec = Hexadecimal.to_dec(self.hx)  # number
+        self.dec = self.to_dec(self.hx)  # number
         self.base = Base(base)
         self.pretty = pretty
         self.verbosity = verbosity
+
+    def to_dec(self, hx):
+        """Converts a hexadecimal string to a decimal number"""
+        if hx is None:  # needed when input is IPv6 address (child sends None)
+            return None
+        dec = 0
+        for i, char in enumerate(hx[::-1]):
+            dec += self.HEX2DEC[char] * (16**i)
+        return dec
 
     def to_base(self, dec):
         """Converts a decimal number to a string in other notation"""
@@ -219,7 +217,7 @@ class Hexadecimal(object):
 
 class IPv6Address(Hexadecimal):
     """
-    IPv6 address. Knows how to convert itself to other notations (any with a base in Base.BASES.keys())
+    IPv6 address. Knows how to convert itself to other notations (any with a base in Base.BASES)
     """
 
     @classmethod
@@ -263,6 +261,7 @@ class IPv6Address(Hexadecimal):
 
     def __init__(self, address, base, pretty, verbosity):
         super(IPv6Address, self).__init__(None, base, pretty, verbosity)
+        self.raw_address = address
         self.address = self.expand(address)
         self.hexes = self.address.split(":")  # list of strings
         self.decimals = [super(IPv6Address, self).to_dec(hx) for hx in self.hexes]  # list of numbers
@@ -289,6 +288,55 @@ class IPv6Address(Hexadecimal):
         address = ":".join(new_parts)
 
         return address
+
+    @staticmethod
+    def compress(address):  # this was a lot harder than expected
+        """Compresses zeroes in an address (as per RFC 5952)"""
+        parts = address.split(":")
+
+        # mapping consecutive zeroes in 'parts'
+        indexes = []  # list of lists of indexes mapping to consecutive zeroes
+        current_seq = []
+        zeroes_count = 0
+        for i, part in enumerate(parts):
+
+            if zeroes_count == 1 and part != "0":  # only at least 2 consecutive zeroes count
+                zeroes_count = 0
+
+            if zeroes_count > 1 and part != "0":
+                for z in range(zeroes_count):
+                    current_seq.append(i - (z + 1))
+                indexes.append(current_seq[::-1])
+                current_seq = []  # flush
+                zeroes_count = 0
+            elif zeroes_count > 0 and part == "0" and i == len(parts) - 1:  # case of zeroes' sequence at the end
+                for z in range(zeroes_count + 1):
+                    current_seq.append(i - z)
+                indexes.append(current_seq[::-1])
+                break
+
+            if part == "0":
+                zeroes_count += 1
+
+        # removing mapped parts & adding colons
+        if len(indexes) > 0:  # if there were zeroes
+            indexes = indexes[::-1]  # reversing order so the next step selects the right sequence (the left-most as per 'parts')
+            indexes = sorted(indexes, key=lambda item: len(item))
+            seq = indexes.pop()
+            # adding colons
+            if len(seq) == 8:
+                return "::"
+            if 0 in seq:
+                parts[seq[len(seq) - 1] + 1] = "::" + parts[seq[len(seq) - 1] + 1]
+            elif len(parts) - 1 in seq:
+                parts[seq[0] - 1] = parts[seq[0] - 1] + "::"
+            else:
+                parts[seq[0] - 1] = parts[seq[0] - 1] + ":"
+            # removing parts
+            for index in seq[::-1]:  # deleting items of a list being looped over - indexes NEED to be reversed!
+                parts.pop(index)
+
+        return ":".join(parts)
 
     def to_base(self):
         """Translates IPv6 address expressed in decimals to other notation"""
@@ -331,9 +379,11 @@ class IPv6Address(Hexadecimal):
 
         if self.pretty:
             output = self.prettify(output)
+        else:
+            output = self.compress(output)
 
-        # if self.verbosity:
-        #     output = "'{}' in {} notation: {}".format(self.hx, self.base.name, output)
+        if self.verbosity:
+            output = "'{}' in {} notation: {}".format(self.raw_address, self.base.name, output)
 
         return output
 
@@ -343,7 +393,7 @@ def get_argsparser():
     parser = argparse.ArgumentParser(description="Convert a hexadecimal/IPv6 address to other notations")
     parser.add_argument("hex_or_ipv6", help="either a hexadecimal number or a valid (RFC 5952 compliant) IPv6 address")
     parser.add_argument("-b", "--base", type=int, choices=sorted(Base.BASES.keys()), default=10, help="base for notation, 32 is Crockford's variety,  defaults to 10")
-    parser.add_argument("-p", "--prettify", action="store_true", help="prettify output to human readable format")
+    parser.add_argument("-p", "--prettify", action="store_true", help="prettify output to human readable format (most useful for lower bases)")
     parser.add_argument("-v", "--verbosity", action="store_true", help="increase output verbosity")
     return parser
 
