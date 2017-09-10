@@ -398,6 +398,9 @@ def get_argsparser():
     return parser
 
 
+# TODO: RGBColor class (inheriting from Hexadecimal) that can translate hex triplet color codes to RGB decimal notation. It probably doesn't need prettifying but should implement verbosity. It needs at least one additional optional command line argument ("-r", "--rgb") or maybe rethinking the whole current argparse strategy
+
+
 def main():
     """Runs the script"""
     parser = get_argsparser()
